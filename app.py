@@ -27,24 +27,30 @@ def kite_callback():
     if not request_token:
         return "No request token received"
 
-    # Generate checksum
-    data = API_KEY + request_token + API_SECRET
-    checksum = hashlib.sha256(data.encode()).hexdigest()
+    data_string = API_KEY + request_token + API_SECRET
+    checksum = hashlib.sha256(data_string.encode()).hexdigest()
 
-    # Exchange for access_token
     url = "https://api.kite.trade/session/token"
+
     payload = {
         "api_key": API_KEY,
         "request_token": request_token,
         "checksum": checksum
     }
 
-    response = requests.post(url, data=payload)
+    headers = {
+        "X-Kite-Version": "3"
+    }
+
+    response = requests.post(url, data=payload, headers=headers)
     data = response.json()
 
-    access_token = data.get("access_token")
+    if data.get("status") == "success":
+        access_token = data["data"]["access_token"]
+        return f"Access token generated successfully: {access_token}"
+    else:
+        return f"Error from Kite: {data}"
 
-    return f"Access token generated successfully: {access_token}"
 
 
 @app.route("/love")
