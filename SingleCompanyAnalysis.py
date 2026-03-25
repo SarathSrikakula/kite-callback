@@ -10,13 +10,14 @@ from PIL import Image
 
 
 # Define local variables for the getting company boundaries
-top_y = 160
-bottom_y = 200
-left_x = 560
-right_x = 700
-
-darkpurple = (94, 66, 129);
-toleranceForAnyColor = 20  # the mark we put inorder to find we need to give tolerance for r,g,b
+top_y = 265
+bottom_y = 305
+left_x = 600
+right_x = 740
+#darkpurple = (94, 66, 129);
+#darkpurple = (91, 49, 141);
+darkpurple = (91, 49, 141);
+toleranceForAnyColor = 13  # the mark we put inorder to find we need to give tolerance for r,g,b
 # Pixel position (x, y)
 red_thresholds = {
     "min_r": 201,
@@ -28,13 +29,20 @@ green_thresholds = {
     "max_g": 120,
     "max_b": 100
 }
-x, y = 1660, 750  # Pixel position fixed to start from bottom
-upto = 570  # go up to what lenth?
+#1800, 900
+#1660,750
+x, y = 1800, 900  # Pixel position fixed to start from bottom4
+#570
+upto = 570  # go up to what lenth
 # Note: startFromLeft is defined inside the function as it depends on img width
-oneMoreStaringFromLeft = 50;  # how much region we need to exclude to the left of the image
+#62
+#50
+oneMoreStaringFromLeft = 62;  # how much region we need to exclude to the left of the image
 blackLineLower = [197, 197, 197];  # boundaries used to find the vertical black line used for horizantal
 blackLineUpper = [228, 228, 228];
-distanceFromBlackLine = 6;  # used to fine x left co-ordinate
+#1190
+#6
+distanceFromBlackLine = 1190;  # used to fine x left co-ordinate
 
 yTopAndBottomLimit = 15;  # from center to how much above and below to determine y co-ordinates
 target_y = 300  # Example input
@@ -178,7 +186,9 @@ def find_purple_y_coordinates_loop(pixel_data, target_rgb, tolerance=20):
     for py in range(rows):
         for px in range(cols):
             r, g, b = pixel_data[py, px]
+            #pixel_data[py, px] = [255, 0, 0]
             if (abs(int(r) - tr) <= tolerance and abs(int(g) - tg) <= tolerance and abs(int(b) - tb) <= tolerance):
+                pixel_data[py-10:py+10, px] = [0, 0, 255]#
                 found_ys.add(py);
                 break
     return sorted(list(found_ys))
@@ -188,13 +198,21 @@ def process_purple_marker(purple_ys, pixel_data):
     if not purple_ys: return None
     mid_y = (purple_ys[0] + purple_ys[-1]) // 2
     pixel_data[mid_y, :] = [20, 255, 150]
+
+
     return mid_y
 
 
 def get_text_from_boundaries(pixel_data, y_start, y_end, x_start, x_end):
+
     snip = pixel_data[y_start:y_end, x_start:x_end]
     if snip.size == 0: return ""
     temp_img = Image.fromarray(snip.astype('uint8'), 'RGB')
+    pixel_data[y_start:y_start + 2, x_start:x_end] = [0, 255, 0]
+    pixel_data[y_end - 2:y_end, x_start:x_end] = [0, 255, 0]
+    # Left and Right lines
+    pixel_data[y_start:y_end, x_start:x_start + 2] = [0, 255, 0]
+    pixel_data[y_start:y_end, x_end - 2:x_end] = [0, 255, 0]
     return pytesseract.image_to_string(temp_img, config='--psm 7').strip()
 
 
@@ -247,11 +265,13 @@ def run_analysis_pipeline(input_path):
 
     # 5. Result Calculations
     red_mid_y = get_red_midpoint(red_coordinates)
+    Image.fromarray(pixels).save("output_final.png")
     currentPrice_val = clean_and_calculate_price(red_mid_y, formatted_f_data)
 
     try:
         purp_ys = find_purple_y_coordinates_loop(pixels, darkpurple, toleranceForAnyColor)
         mid_purp_y = process_purple_marker(purp_ys, pixels)
+
         dottedPrice_val = clean_and_calculate_price(mid_purp_y, formatted_f_data)
     except Exception as e:
         dottedPrice_val = 0;
@@ -277,7 +297,7 @@ def run_analysis_pipeline(input_path):
 
 if __name__ == "__main__":
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = os.path.join(base_dir, "img.jpeg")#test image
+    image_path = os.path.join(base_dir, "Company_Charts/img.png")#test image
     # Call the main pipeline with the global image_path
     cur_p, name, dot_p = run_analysis_pipeline(image_path)
 
