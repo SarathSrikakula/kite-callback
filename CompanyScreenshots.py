@@ -11,7 +11,7 @@ SEARCH_BOX = (246, 200)
 OPEN_GRAPH = (438, 292)
 
 # --- SETTINGS ---
-ITERATIONS = 5  # Set this to the number of companies in your Excel list
+ITERATIONS = 523  # Set this to the number of companies in your Excel list
 SAVE_DIR = "Company_Charts"
 if not os.path.exists(SAVE_DIR): os.makedirs(SAVE_DIR)
 
@@ -47,6 +47,14 @@ def start_macro():
         time.sleep(0.8)
         pyautogui.click(SEARCH_BOX)
 
+
+
+
+        time.sleep(0.5)
+        # Clear existing text and paste
+        pyautogui.hotkey('ctrl', 'a')
+        pyautogui.press('backspace')
+        pyautogui.hotkey('ctrl', 'v')
         # 2. PERFORM THE MOVEMENT
         # We move from the current position (Search Box) to the Open Graph button
         # 'duration' makes the mouse move smoothly over 0.6 seconds instead of teleporting
@@ -55,21 +63,10 @@ def start_macro():
         # 3. CLICK THE TARGET
         pyautogui.click()
 
-
-        time.sleep(0.5)
-        # Clear existing text and paste
-        pyautogui.hotkey('ctrl', 'a')
-        pyautogui.press('backspace')
-        pyautogui.hotkey('ctrl', 'v')
-        time.sleep(1)
-        pyautogui.press('enter')
-        time.sleep(1)
-
         check_failsafe()
-        # 3. OPEN GRAPH & SCREENSHOT
-        pyautogui.click(OPEN_GRAPH)
+
         print("Waiting for chart to load...")
-        time.sleep(7) # Adjust based on your internet speed
+        time.sleep(2.5) # Adjust based on your internet speed
 
         check_failsafe()
         # Save with a timestamp or index

@@ -6,14 +6,14 @@ import csv
 import os
 
 # --- CONFIGURATION ---
-max_pages=40
+max_pages=11
 CSV_FILENAME = "scraped_data.csv"
 APPEND_MODE = False  # If True, keeps old data. If False, wipes at start.
-COOKIE = 'csrftoken=b6vRC5VjlyeFPYyxO9r4UkKp6qQhW503; sessionid=rt7uyd3vlc7d2aj4f4vox2ofzczqn4af'
+COOKIE = 'csrftoken=y1Rnx0bdYFSPjyNunOL0cqkzhZgNThh3; sessionid=ocmpjyif745cplsx2ifqujvzyccgxvg2'
 #Return over 1month   < -9% AND Volume > 100000
 #QUERY_URL = "https://www.screener.in/screen/raw/?sort=&order=&source_id=&query=Return+over+1month+++%3C+-9%25+AND%0D%0A%0D%0AVolume+%3E+100000"
 
-QUERY_URL = "https://www.screener.in/screen/raw/?sort=name&order=asc&source_id=&query=Market+capitalization+%3E+378.85"
+QUERY_URL = "https://www.screener.in/screen/raw/?sort=market+capitalization&order=&source_id=&query=Return+over+3months++++++%3E+6%25+AND%0D%0A%0D%0A%0D%0AMarket+Capitalization+%3E+2000"
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -79,7 +79,7 @@ def get_company_data(base_url):
         time.sleep(1)
 
     # 1. Sort the list by 'mcap' in descending order
-    all_companies.sort(key=lambda x: x['mcap'], reverse=True)
+    all_companies.sort(key=lambda x: x['mcap'], reverse=False)
 
     # 2. Extract just the names for the final return (if you only want names)
     all_names = [company['name'] for company in all_companies]
