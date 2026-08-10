@@ -12,7 +12,7 @@ import yfinance as yf
 INPUT_FILE_BASE = "final_screened_indian_stocks"
 
 # Output directory name created inside current project folder
-OUTPUT_FOLDER = "weekly_5yr_charts_by_category"
+OUTPUT_FOLDER = "weekly_5yr_indian_charts"
 
 # Exchange suffix (.NS for National Stock Exchange, .BO for Bombay Stock Exchange)
 DEFAULT_SUFFIX = ".NS"
@@ -22,7 +22,7 @@ DEFAULT_SUFFIX = ".NS"
 #   - Specific list: ["Automobile", "IT Services", "Banking"]
 #   - Single category: ["Pharma"]
 #   - Everything: ["ALL"] or []
-SELECTED_CATEGORIES = ["Automobile", "IT Services"]
+SELECTED_CATEGORIES = ["Automobile", "IT Services", "Banking"]
 
 # Save charts inside separate category subfolders? (e.g., weekly_5yr_indian_charts/Automobile/MARUTI_5yr_weekly.png)
 CREATE_CATEGORY_SUBFOLDERS = True
