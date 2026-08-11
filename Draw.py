@@ -104,10 +104,10 @@ def load_target_tickers(file_path: str, is_new_filter: str) -> list:
 def fetch_5yr_weekly_data(ticker: str, api_key: str) -> pd.DataFrame:
   """Fetches weekly OHLCV aggregate bars for a single ticker."""
   to_date = pd.Timestamp.now().strftime("%Y-%m-%d")
-  from_date = (pd.Timestamp.now() - pd.DateOffset(years=2)).strftime("%Y-%m-%d")
+  from_date = (pd.Timestamp.now() - pd.DateOffset(years=5)).strftime("%Y-%m-%d")
 
   url = (
-      f"https://api.massive.com/v2/aggs/ticker/{ticker}/range/1/week/{from_date}/{to_date}"
+      f"https://api.massive.com/v2/aggs/ticker/{ticker}/range/1/day/{from_date}/{to_date}"
       f"?adjusted=true&sort=asc&apiKey={api_key}"
   )
 
