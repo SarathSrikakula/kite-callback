@@ -9,10 +9,10 @@ import yfinance as yf
 # CONFIGURATION
 # ===================================================================
 # Base file name (auto-checks for .xlsx or .csv)
-INPUT_FILE_BASE = "final_screened_indian_stocks"
+INPUT_FILE_BASE = "filled_indian_stocks"
 
 # Output directory name created inside current project folder
-OUTPUT_FOLDER = "weekly_5yr_indian_charts"
+OUTPUT_FOLDER = "weekly_5yr_charts_by_category"
 
 # Exchange suffix (.NS for National Stock Exchange, .BO for Bombay Stock Exchange)
 DEFAULT_SUFFIX = ".NS"

@@ -10,23 +10,21 @@ import requests
 # CONFIGURATION & USER VARIABLES
 # ===================================================================
 API_KEY = "J35wnk4eNZEioisPriHivFBlefFd9dfb"
-INPUT_FILE = "final_screened_stocks.csv"  # or "final_screened_indian_stocks.csv"
+INPUT_FILE = "final_screened_stocks.csv"
 
 # -------------------------------------------------------------------
 # 📁 PROJECT FOLDER SETTINGS
 # -------------------------------------------------------------------
-# Name of the folder to be created inside your current project directory
 FOLDER_NAME = "weekly_5yr_charts"
 
 # Filter Choice ("Yes", "No", or "ALL")
 FILTER_IS_NEW = "No"
 
 # Auto-create subfolders inside project directory based on filter?
-# e.g., "weekly_5yr_charts/is_new_yes"
 AUTO_SUBFOLDER_BY_FILTER = True
 
-# Delete old graph images inside the target folder before running
-DELETE_EXISTING_GRAPHS = True
+# Delete old graph images inside target folder before running?
+DELETE_EXISTING_GRAPHS = False
 
 
 # ===================================================================
@@ -39,10 +37,8 @@ def prepare_project_directory(
     delete_existing: bool,
 ) -> str:
   """Creates a folder strictly inside the current working directory."""
-  # Get current project directory
   project_dir = os.getcwd()
 
-  # Construct path inside current project
   if use_subfolders:
     target_dir = os.path.join(
         project_dir, folder_name, f"is_new_{is_new_filter.lower()}"
@@ -50,11 +46,9 @@ def prepare_project_directory(
   else:
     target_dir = os.path.join(project_dir, folder_name)
 
-  # Create directory if it doesn't exist
   os.makedirs(target_dir, exist_ok=True)
   print(f"📁 Project Save Path: '{target_dir}'")
 
-  # Delete old graphs inside this specific project subfolder if requested
   if delete_existing:
     existing_files = glob.glob(os.path.join(target_dir, "*.png"))
     if existing_files:
@@ -68,8 +62,6 @@ def prepare_project_directory(
         except Exception as e:
           print(f"  Failed to delete {file}: {e}")
       print("  -> Cleanup complete.")
-    else:
-      print(f"  -> No existing PNGs found in '{target_dir}'.")
 
   return target_dir
 
@@ -89,7 +81,6 @@ def load_target_tickers(file_path: str, is_new_filter: str) -> list:
     print(f"Error: 'Ticker' column missing in '{file_path}'.")
     return []
 
-  # Apply Is_New filter
   if is_new_filter.upper() != "ALL":
     if "Is_New" in df.columns:
       df = df[
@@ -108,25 +99,33 @@ def load_target_tickers(file_path: str, is_new_filter: str) -> list:
 
 
 # ===================================================================
-# HELPER: Fetch 5 Years Weekly Data from Polygon.io
+# HELPER: Fetch Weekly Data from Polygon.io (FIXED DATA PARSER)
 # ===================================================================
 def fetch_5yr_weekly_data(ticker: str, api_key: str) -> pd.DataFrame:
-  """Fetches 5 years of weekly OHLCV aggregate bars for a single ticker."""
+  """Fetches weekly OHLCV aggregate bars for a single ticker."""
   to_date = pd.Timestamp.now().strftime("%Y-%m-%d")
-  from_date = (pd.Timestamp.now() - pd.DateOffset(years=5)).strftime("%Y-%m-%d")
+  from_date = (pd.Timestamp.now() - pd.DateOffset(years=2)).strftime("%Y-%m-%d")
 
   url = (
-      f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/week/{from_date}/{to_date}"
+      f"https://api.massive.com/v2/aggs/ticker/{ticker}/range/1/week/{from_date}/{to_date}"
       f"?adjusted=true&sort=asc&apiKey={api_key}"
   )
 
   try:
     response = requests.get(url)
+
+    # Handle Rate Limit HTTP status code explicitly
+    if response.status_code == 429:
+      print(f"  ⚠️ Rate limit hit for {ticker}. Waiting 15 seconds...")
+      time.sleep(15)
+      return pd.DataFrame()
+
     data = response.json()
 
+    # ✅ FIXED CONDITION: Check if 'results' array exists and contains data
     if (
-        data.get("status") == "OK"
-        and "results" in data
+        "results" in data
+        and isinstance(data["results"], list)
         and len(data["results"]) > 0
     ):
       df = pd.DataFrame(data["results"])
@@ -144,11 +143,11 @@ def fetch_5yr_weekly_data(ticker: str, api_key: str) -> pd.DataFrame:
       return df[["Date", "Open", "High", "Low", "Close", "Volume"]]
 
     elif "NOT_AUTHORIZED" in str(data) or "MAX_REQUESTS" in str(data):
-      print(f"  Rate limit/Auth issue for {ticker}. Waiting 15 seconds...")
+      print(f"  Auth/Limit issue for {ticker}. Waiting 15 seconds...")
       time.sleep(15)
       return pd.DataFrame()
     else:
-      print(f"  No data found for symbol: {ticker}")
+      print(f"  No data found in response for symbol: {ticker}")
       return pd.DataFrame()
 
   except Exception as e:
@@ -157,10 +156,10 @@ def fetch_5yr_weekly_data(ticker: str, api_key: str) -> pd.DataFrame:
 
 
 # ===================================================================
-# HELPER: Generate & Save 5-Year Weekly Chart
+# HELPER: Generate & Save Weekly Chart
 # ===================================================================
 def plot_and_save_chart(df: pd.DataFrame, ticker: str, output_dir: str):
-  """Plots 5-year weekly closing prices with volume sub-chart and saves as PNG."""
+  """Plots weekly closing prices with volume sub-chart and saves as PNG."""
   fig, (ax_price, ax_vol) = plt.subplots(
       2,
       1,
@@ -174,12 +173,12 @@ def plot_and_save_chart(df: pd.DataFrame, ticker: str, output_dir: str):
       df["Date"], df["Close"], color="#1f77b4", linewidth=1.8, label="Weekly Close"
   )
   ax_price.set_title(
-      f"{ticker} — 5-Year Weekly Price Trend",
+      f"{ticker} — Weekly Price Trend",
       fontsize=14,
       fontweight="bold",
       pad=12,
   )
-  ax_price.set_ylabel("Price ($ / ₹)", fontsize=11)
+  ax_price.set_ylabel("Price ($)", fontsize=11)
   ax_price.grid(True, linestyle="--", alpha=0.5)
   ax_price.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
 
@@ -191,7 +190,7 @@ def plot_and_save_chart(df: pd.DataFrame, ticker: str, output_dir: str):
       min_row["Date"], min_row["Close"], color="red", s=50, zorder=5
   )
   ax_price.annotate(
-      f"Low: {min_row['Close']:.2f}",
+      f"Low: ${min_row['Close']:.2f}",
       (min_row["Date"], min_row["Close"]),
       textcoords="offset points",
       xytext=(0, -15),
@@ -204,7 +203,7 @@ def plot_and_save_chart(df: pd.DataFrame, ticker: str, output_dir: str):
       max_row["Date"], max_row["Close"], color="green", s=50, zorder=5
   )
   ax_price.annotate(
-      f"High: {max_row['Close']:.2f}",
+      f"High: ${max_row['Close']:.2f}",
       (max_row["Date"], max_row["Close"]),
       textcoords="offset points",
       xytext=(0, 10),
@@ -223,8 +222,7 @@ def plot_and_save_chart(df: pd.DataFrame, ticker: str, output_dir: str):
   plt.xticks(rotation=0)
   plt.tight_layout()
 
-  # Save chart directly into project folder path
-  file_path = os.path.join(output_dir, f"{ticker}_5yr_weekly.png")
+  file_path = os.path.join(output_dir, f"{ticker}_weekly.png")
   plt.savefig(file_path, dpi=150, bbox_inches="tight")
   plt.close(fig)
 
@@ -235,9 +233,8 @@ def plot_and_save_chart(df: pd.DataFrame, ticker: str, output_dir: str):
 # MAIN WORKFLOW
 # ===================================================================
 if __name__ == "__main__":
-  print("================ 5-YEAR WEEKLY CHART GENERATOR ================\n")
+  print("================ WEEKLY CHART GENERATOR ================\n")
 
-  # Step 1: Set up folder inside current project directory
   target_dir = prepare_project_directory(
       folder_name=FOLDER_NAME,
       is_new_filter=FILTER_IS_NEW,
@@ -245,37 +242,33 @@ if __name__ == "__main__":
       delete_existing=DELETE_EXISTING_GRAPHS,
   )
 
-  # Step 2: Read target tickers filtered by Is_New status
   tickers = load_target_tickers(INPUT_FILE, FILTER_IS_NEW)
 
   if not tickers:
     print("No tickers available to process. Exiting.")
     exit()
 
-  print(
-      f"\nProcessing {len(tickers)} ticker(s) with 12.5s delays for Polygon"
-      " Free Tier limits...\n"
-  )
+  print(f"\nProcessing {len(tickers)} ticker(s) with Polygon.io API...\n")
 
-  # Step 3: Loop through tickers, fetch data, and save charts
   start_time = time.time()
+  saved = 0
 
   for idx, ticker in enumerate(tickers, start=1):
-    print(f"[{idx}/{len(tickers)}] Fetching 5Y weekly data for '{ticker}'...")
+    print(f"[{idx}/{len(tickers)}] Fetching weekly data for '{ticker}'...")
 
     df_weekly = fetch_5yr_weekly_data(ticker, API_KEY)
 
     if not df_weekly.empty:
       plot_and_save_chart(df_weekly, ticker, target_dir)
+      saved += 1
 
-    # Respect Polygon Free Tier Limit (5 calls/min -> 12.5s delay)
+    # Respect Polygon Free Tier Limit (12.5s delay between API calls)
     if idx < len(tickers):
       time.sleep(12.5)
 
   elapsed = (time.time() - start_time) / 60
   print(
-      f"\nSUCCESS! Saved {len(tickers)} chart(s) in {elapsed:.1f} minutes inside"
-      " your project folder:"
+      f"\nSUCCESS! Saved {saved} chart(s) in {elapsed:.1f} minutes inside:"
   )
   print(f"📍 '{target_dir}'")
   print("===============================================================")

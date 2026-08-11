@@ -309,18 +309,12 @@ if __name__ == "__main__":
   raw_df = load_stock_data(input_file)
 
   # 2. RUN SCREENER WITH YOUR SPECIFIC PARAMETERS
-  run_30d = screen_by_low_threshold(
-      df=raw_df,
-      min_pct=2.0,
-      max_pct=10.0,
-      lookback_days=30,
-      min_price=1.0,
-      min_avg_volume=100000,
-      latest_date=(pd.Timestamp.now() - pd.Timedelta(days=5)).strftime(
-          "%Y-%m-%d"
-      ),
-      period_label="for 30 days",
-  )
+
+
+
+
+
+
 
   run_60d = screen_by_low_threshold(
       df=raw_df,
