@@ -15,7 +15,8 @@ PIPELINE_STEPS = [
     {"name": "Curve India", "file": "curveIndia.py", "run": True},
     {"name": "Draw India", "file": "DrawIndia.py", "run": True},
 ]
-
+SHUTDOWN_AFTER_RUN = True
+SHUTDOWN_DELAY_SECONDS = 60
 
 # ===================================================================
 # PIPELINE EXECUTION ENGINE
@@ -77,3 +78,5 @@ def run_pipeline():
 
 if __name__ == "__main__":
   run_pipeline()
+  if SHUTDOWN_AFTER_RUN:
+      os.system(f"shutdown /s /t {SHUTDOWN_DELAY_SECONDS}")

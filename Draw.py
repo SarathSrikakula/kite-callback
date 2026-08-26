@@ -1,6 +1,9 @@
 import glob
 import os
 import time
+from typing import Optional
+
+import duckdb
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import pandas as pd
@@ -11,6 +14,7 @@ import requests
 # ===================================================================
 API_KEY = "J35wnk4eNZEioisPriHivFBlefFd9dfb"
 INPUT_FILE = "final_screened_stocks.csv"
+DB_FILE = "us_stocks_5yr.duckdb"  # Path to your DuckDB database
 
 # -------------------------------------------------------------------
 # 📁 PROJECT FOLDER SETTINGS
@@ -24,7 +28,7 @@ FILTER_IS_NEW = "No"
 AUTO_SUBFOLDER_BY_FILTER = True
 
 # Delete old graph images inside target folder before running?
-DELETE_EXISTING_GRAPHS = False
+DELETE_EXISTING_GRAPHS = True
 
 
 # ===================================================================
@@ -99,37 +103,94 @@ def load_target_tickers(file_path: str, is_new_filter: str) -> list:
 
 
 # ===================================================================
-# HELPER: Fetch Weekly Data from Polygon.io (FIXED DATA PARSER)
+# HELPER 1: Dynamically Fetch Data from DuckDB & Detect Latest Date
 # ===================================================================
-def fetch_5yr_weekly_data(ticker: str, api_key: str) -> pd.DataFrame:
-  """Fetches weekly OHLCV aggregate bars for a single ticker."""
-  to_date = pd.Timestamp.now().strftime("%Y-%m-%d")
-  from_date = (pd.Timestamp.now() - pd.DateOffset(years=5)).strftime("%Y-%m-%d")
+def fetch_duckdb_data_dynamic(
+    ticker: str, start_date_str: str, db_file: str
+) -> tuple[pd.DataFrame, Optional[str]]:
+  """Fetches all available historical data from start_date_str up to the max date present in DB for a ticker.
 
+  Returns a tuple: (DataFrame, max_date_string)
+  """
+  if not os.path.exists(db_file):
+    print(f"  ⚠️ Database '{db_file}' not found. Skipping DB fetch.")
+    return pd.DataFrame(), None
+
+  try:
+    con = duckdb.connect(db_file, read_only=True)
+
+    # Check maximum date for this ticker in DuckDB
+    max_date_query = """
+        SELECT MAX(date) FROM daily_stocks WHERE ticker = ?
+    """
+    max_date_res = con.execute(max_date_query, [ticker]).fetchone()[0]
+
+    if max_date_res is None:
+      con.close()
+      return pd.DataFrame(), None
+
+    max_date_str = str(max_date_res)
+
+    # Query all data from 5 years ago up to the ticker's max date
+    query = """
+        SELECT 
+            CAST(date AS VARCHAR) as date_str,
+            open AS Open,
+            high AS High,
+            low AS Low,
+            close AS Close,
+            volume AS Volume
+        FROM daily_stocks
+        WHERE ticker = ? AND date >= ? AND date <= ?
+        ORDER BY date ASC
+    """
+
+    df = con.execute(query, [ticker, start_date_str, max_date_str]).df()
+    con.close()
+
+    if not df.empty:
+      df["Date"] = pd.to_datetime(df["date_str"])
+      return (
+          df[["Date", "Open", "High", "Low", "Close", "Volume"]],
+          max_date_str,
+      )
+
+  except Exception as e:
+    print(f"  ⚠️ DuckDB read error for {ticker}: {e}")
+
+  return pd.DataFrame(), None
+
+
+# ===================================================================
+# HELPER 2: Fetch Recent Data from API
+# ===================================================================
+def fetch_api_daily_data(
+    ticker: str, start_date_str: str, end_date_str: str, api_key: str
+) -> pd.DataFrame:
+  """Fetches daily bars for recent date range from API."""
   url = (
-      f"https://api.massive.com/v2/aggs/ticker/{ticker}/range/1/day/{from_date}/{to_date}"
+      f"https://api.massive.com/v2/aggs/ticker/{ticker}/range/1/day/{start_date_str}/{end_date_str}"
       f"?adjusted=true&sort=asc&apiKey={api_key}"
   )
 
   try:
     response = requests.get(url)
 
-    # Handle Rate Limit HTTP status code explicitly
     if response.status_code == 429:
       print(f"  ⚠️ Rate limit hit for {ticker}. Waiting 15 seconds...")
       time.sleep(15)
-      return pd.DataFrame()
+      return fetch_api_daily_data(
+          ticker, start_date_str, end_date_str, api_key
+      )
 
     data = response.json()
 
-    # ✅ FIXED CONDITION: Check if 'results' array exists and contains data
     if (
         "results" in data
         and isinstance(data["results"], list)
         and len(data["results"]) > 0
     ):
       df = pd.DataFrame(data["results"])
-      # Map Polygon columns: t=timestamp (ms), c=close, o=open, h=high, l=low, v=volume
       df["Date"] = pd.to_datetime(df["t"], unit="ms")
       df = df.rename(
           columns={
@@ -142,21 +203,43 @@ def fetch_5yr_weekly_data(ticker: str, api_key: str) -> pd.DataFrame:
       )
       return df[["Date", "Open", "High", "Low", "Close", "Volume"]]
 
-    elif "NOT_AUTHORIZED" in str(data) or "MAX_REQUESTS" in str(data):
-      print(f"  Auth/Limit issue for {ticker}. Waiting 15 seconds...")
-      time.sleep(15)
-      return pd.DataFrame()
-    else:
-      print(f"  No data found in response for symbol: {ticker}")
-      return pd.DataFrame()
-
   except Exception as e:
     print(f"  HTTP request error for {ticker}: {e}")
-    return pd.DataFrame()
+
+  return pd.DataFrame()
 
 
 # ===================================================================
-# HELPER: Generate & Save Weekly Chart
+# HELPER 3: Resample Combined Daily Data to Weekly Bars
+# ===================================================================
+def resample_to_weekly(df_daily: pd.DataFrame) -> pd.DataFrame:
+  """Converts daily OHLCV data into weekly aggregate bars."""
+  if df_daily.empty:
+    return pd.DataFrame()
+
+  df = df_daily.sort_values("Date").drop_duplicates(
+      subset=["Date"], keep="last"
+  )
+  df.set_index("Date", inplace=True)
+
+  # Resample into weekly bars ending on Friday ('W-FRI')
+  weekly_df = (
+      df.resample("W-FRI")
+      .agg({
+          "Open": "first",
+          "High": "max",
+          "Low": "min",
+          "Close": "last",
+          "Volume": "sum",
+      })
+      .dropna()
+  )
+
+  return weekly_df.reset_index()
+
+
+# ===================================================================
+# HELPER 4: Generate & Save Weekly Chart
 # ===================================================================
 def plot_and_save_chart(df: pd.DataFrame, ticker: str, output_dir: str):
   """Plots weekly closing prices with volume sub-chart and saves as PNG."""
@@ -173,7 +256,7 @@ def plot_and_save_chart(df: pd.DataFrame, ticker: str, output_dir: str):
       df["Date"], df["Close"], color="#1f77b4", linewidth=1.8, label="Weekly Close"
   )
   ax_price.set_title(
-      f"{ticker} — Weekly Price Trend",
+      f"{ticker} — 5-Year Weekly Price Trend (Dynamic DB + API)",
       fontsize=14,
       fontweight="bold",
       pad=12,
@@ -233,7 +316,7 @@ def plot_and_save_chart(df: pd.DataFrame, ticker: str, output_dir: str):
 # MAIN WORKFLOW
 # ===================================================================
 if __name__ == "__main__":
-  print("================ WEEKLY CHART GENERATOR ================\n")
+  print("================ DYNAMIC 5-YEAR WEEKLY CHART GENERATOR ================\n")
 
   target_dir = prepare_project_directory(
       folder_name=FOLDER_NAME,
@@ -248,23 +331,60 @@ if __name__ == "__main__":
     print("No tickers available to process. Exiting.")
     exit()
 
-  print(f"\nProcessing {len(tickers)} ticker(s) with Polygon.io API...\n")
+  today = pd.Timestamp.now()
+  five_yrs_ago = (today - pd.DateOffset(years=5)).strftime("%Y-%m-%d")
+  today_str = today.strftime("%Y-%m-%d")
+
+  print(f"📅 Global Date Range Target: {five_yrs_ago} to {today_str}\n")
 
   start_time = time.time()
   saved = 0
 
   for idx, ticker in enumerate(tickers, start=1):
-    print(f"[{idx}/{len(tickers)}] Fetching weekly data for '{ticker}'...")
+    print(f"[{idx}/{len(tickers)}] Processing '{ticker}'...")
 
-    df_weekly = fetch_5yr_weekly_data(ticker, API_KEY)
+    # 1. Dynamically fetch DB data up to ticker's MAX(date)
+    df_db, max_db_date = fetch_duckdb_data_dynamic(
+        ticker, five_yrs_ago, DB_FILE
+    )
 
-    if not df_weekly.empty:
-      plot_and_save_chart(df_weekly, ticker, target_dir)
-      saved += 1
+    # 2. Determine API start date dynamically
+    if max_db_date is not None:
+      # Start API fetch from the day AFTER the DB's latest date
+      api_start_date = (
+          pd.to_datetime(max_db_date) + pd.Timedelta(days=1)
+      ).strftime("%Y-%m-%d")
+      print(
+          f"  -> DB data found up to {max_db_date}. Pulling API from"
+          f" {api_start_date} to {today_str}..."
+      )
+    else:
+      # If ticker doesn't exist in DB at all, fetch full 5 years from API
+      api_start_date = five_yrs_ago
+      print(
+          f"  -> Ticker not in DB. Pulling full range ({api_start_date} to"
+          f" {today_str}) from API..."
+      )
 
-    # Respect Polygon Free Tier Limit (12.5s delay between API calls)
-    if idx < len(tickers):
-      time.sleep(12.5)
+    # 3. Fetch missing date range from API (if api_start_date <= today)
+    df_api = pd.DataFrame()
+    if api_start_date <= today_str:
+      df_api = fetch_api_daily_data(ticker, api_start_date, today_str, API_KEY)
+
+    # 4. Combine both data sources
+    df_combined_daily = pd.concat([df_db, df_api], ignore_index=True)
+
+    if not df_combined_daily.empty:
+      # 5. Resample daily records to 5-year weekly bars
+      df_weekly = resample_to_weekly(df_combined_daily)
+
+      if not df_weekly.empty:
+        plot_and_save_chart(df_weekly, ticker, target_dir)
+        saved += 1
+
+    # Respect API rate limits between requests
+    if idx < len(tickers) and not df_api.empty:
+      time.sleep(0.5)
 
   elapsed = (time.time() - start_time) / 60
   print(

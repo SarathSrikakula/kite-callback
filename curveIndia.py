@@ -509,6 +509,19 @@ if __name__ == "__main__":
   print(
       "\n================ EXPORTING WITHOUT ATH FILTER CHUNKS ================"
   )
+
+  import os
+  import shutil
+
+  DeleteFOLDER_NAME = "indian_output_excels"
+
+  if os.path.exists(DeleteFOLDER_NAME):
+      shutil.rmtree(DeleteFOLDER_NAME)
+      print(f"🗑️ Deleted all contents in '{DeleteFOLDER_NAME}'")
+
+  os.makedirs(DeleteFOLDER_NAME)
+  print(f"📁 Recreated empty folder '{DeleteFOLDER_NAME}'")
+
   # 1. NEW Stocks (Is_New == "Yes")
   export_chunks(
       df=df_without_ath,
