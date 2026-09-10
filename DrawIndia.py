@@ -18,7 +18,7 @@ FOLDER_NAME = "weekly_5yr_indian_charts"
 DEFAULT_SUFFIX = ".NS"
 
 # Is_New filter choice: "Yes", "No", or "ALL"
-FILTER_IS_NEW = "No"
+FILTER_IS_NEW = "Yes"
 
 # Create filter-specific subfolders (e.g., "weekly_5yr_indian_charts/is_new_yes")
 AUTO_SUBFOLDER_BY_FILTER = True

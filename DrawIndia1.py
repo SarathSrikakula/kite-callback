@@ -22,7 +22,7 @@ DEFAULT_SUFFIX = ".NS"
 #   - Specific list: ["Automobile", "IT Services", "Banking"]
 #   - Single category: ["Pharma"]
 #   - Everything: ["ALL"] or []
-SELECTED_CATEGORIES = ["Automobile", "IT Services", "Banking"]
+SELECTED_CATEGORIES = ["su", "vsu", "g","vg"]
 
 # Save charts inside separate category subfolders? (e.g., weekly_5yr_indian_charts/Automobile/MARUTI_5yr_weekly.png)
 CREATE_CATEGORY_SUBFOLDERS = True

@@ -19,7 +19,7 @@ DB_FILE = "us_stocks_5yr.duckdb"  # Path to your DuckDB database
 OUTPUT_FOLDER = "weekly_5yr_charts_by_category_usa"
 
 # 🎯 EDIT THIS ARRAY TO PICK WHICH CATEGORIES TO PROCESS
-SELECTED_CATEGORIES = ["Automobile", "IT Services", "Banking"]
+SELECTED_CATEGORIES =["su", "vsu", "g","vg"]
 
 # Save charts inside separate category subfolders?
 CREATE_CATEGORY_SUBFOLDERS = True
@@ -355,7 +355,7 @@ if __name__ == "__main__":
   total_stocks = len(df_input)
 
   for idx, (_, row) in enumerate(df_input.iterrows(), start=1):
-    raw_ticker = str(row["Ticker"]).strip()
+    raw_ticker = str(row["Ticker"]).strip().upper()
     category = str(row["Category"]).strip()
 
     print(

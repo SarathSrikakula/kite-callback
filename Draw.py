@@ -22,7 +22,7 @@ DB_FILE = "us_stocks_5yr.duckdb"  # Path to your DuckDB database
 FOLDER_NAME = "weekly_5yr_charts"
 
 # Filter Choice ("Yes", "No", or "ALL")
-FILTER_IS_NEW = "No"
+FILTER_IS_NEW = "Yes"
 
 # Auto-create subfolders inside project directory based on filter?
 AUTO_SUBFOLDER_BY_FILTER = True
