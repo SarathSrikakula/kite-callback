@@ -19,7 +19,7 @@ DB_FILE = "us_stocks_5yr.duckdb"  # Path to your DuckDB database
 OUTPUT_FOLDER = "weekly_5yr_charts_by_category_usa"
 
 # 🎯 EDIT THIS ARRAY TO PICK WHICH CATEGORIES TO PROCESS
-SELECTED_CATEGORIES =["su", "vsu", "g","vg"]
+SELECTED_CATEGORIES =["su", "vsu", "g","vg","i"]
 
 # Save charts inside separate category subfolders?
 CREATE_CATEGORY_SUBFOLDERS = True
